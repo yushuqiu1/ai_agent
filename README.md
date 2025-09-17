@@ -1,6 +1,6 @@
 # CrewAI Minimal — Two Agents (Summarizer & Q&A)
 
-This project is a **CrewAI assignment implementation** with **three files**:
+This project is a **minimal CrewAI assignment implementation** with just **three files**:
 
 - `main.py` — all code in one file (agents, tasks, crew, runner)  
 - `README.md` — this documentation  
@@ -167,6 +167,27 @@ Choose one of:
 - Default model: CrewAI uses GPT-4 class unless overridden. You can save costs by specifying `gpt-4o-mini` in agent definitions.  
 - CrewAI’s logging is verbose: you’ll see task execution steps in your terminal.  
 
+---
+
+## ✅ What Worked / What Didn’t
+
+### What Worked
+- CrewAI orchestration of **two agents in sequence** works as expected.  
+- Personas (`backstory`) help guide style (concise bullets, evidence-based answers).  
+- FileWriterTool successfully saves summaries/answers when configured.  
+- Modes (`demo`, `summarize`, `qa`) allow flexible testing from the terminal.  
+
+### What Didn’t (Limitations)
+- **Quota dependency:** Must have an active OpenAI billing plan, otherwise runs fail with quota errors.  
+- **Local models not integrated:** Hosting/running with Ollama or Hugging Face models would require extra setup (this project is tested only with OpenAI API).  
+- **File saving behavior:** FileWriterTool may not always save output if the model ignores instructions.  
+- **Search tool limits:** `SerperDevTool` requires a SERPER API key and may have rate limits.  
+- **No persistent memory:** Agents don’t remember past runs (stateless by design).  
+
+---
+
+## 🤖 AI Assistance Acknowledgment
+Approximately **80% of the code was generated with AI assistance** (ChatGPT / GPT-5).  
 ---
 
 ## 📂 File Overview
