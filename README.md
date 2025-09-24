@@ -8,6 +8,7 @@ A minimal **CrewAI** agent exposed via a **NANDA** bridge. It registers with the
 All orchestration lives in a single file: **`nanda_agent.py`**, which uses your **`nanda_adapter.NANDA`** bridge.
 
 Below is the screenshot showing that my registry is successful and I received the link:
+(screenshot_for_register.png)
 
 
 ---
