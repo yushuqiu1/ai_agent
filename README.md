@@ -1,143 +1,197 @@
-# CrewAI × NANDA Bridge — Summarize & Q&A Agent
+# CrewAI Minimal — Two Agents (Summarizer & Q&A)
 
-A minimal **CrewAI** agent exposed via a **NANDA** bridge. It registers with the NANDA registry and serves two capabilities:
+This project is a **minimal CrewAI assignment implementation** with just **three files**:
 
-- **Summarize:** turn text into crisp, structured bullets  
-- **Q&A:** answer a question using provided context (and optional web search)
+- `main.py` — all code in one file (agents, tasks, crew, runner)  
+- `README.md` — this documentation  
+- `requirements.txt` — dependencies  
 
-All orchestration lives in a single file: **`nanda_agent.py`**, which uses the **`nanda_adapter.NANDA`** bridge.
-
-Below is the screenshot showing that my registry is successful and I received the link:
-(docs/screenshot_for_register.png)
+It demonstrates how to build a **CrewAI system with two agents** that embody a “digital twin lite” persona of a student (Yushu).  
 
 ---
 
-## Deployment Context
+## ✨ Design
 
-- **Domain:** I own `ysqiu.com` via Namecheap and point it to my EC2 instance.  
-- **Infrastructure:** Amazon Linux EC2 instance, following setup instructions.  
+### Agents
+1. **Concise Summarizer**  
+   - **Role:** Condenses text into clear, structured bullet points  
+   - **Goal:** Produce 5–10 plain-language bullets with short headers  
+   - **Persona (backstory):** Yushu’s “digital twin lite” for summarization — concise, action-oriented, preserving key numbers/names  
 
----
+2. **Practical Q&A Specialist**  
+   - **Role:** Answers user questions based on context (or via optional web search)  
+   - **Goal:** Provide direct answers, with short explanation + next steps/tips  
+   - **Persona (backstory):** Evidence-minded, pragmatic, includes short “how I got this” notes  
 
-## How It Decides What To Do
+### Tasks
+- **Summarization Task**  
+  - Input: free-form text  
+  - Output: Markdown bullets with title, sections, and optional action items  
+  - Saved to `summary.md` if `FileWriterTool` is used  
 
-Incoming message parsing (in order):
+- **Q&A Task**  
+  - Input: a user’s question, plus optional context  
+  - Output: Direct markdown answer + explanation (+ sources if applicable)  
+  - Saved to `answer.md` if `FileWriterTool` is used  
 
-1. **JSON payload** (preferred)
-   - `{"mode":"summarize","text":"..."}`
-   - `{"mode":"qa","question":"...","context":"..."}`
-
-2. **Command prefixes**
-   - `summarize: <text>`
-   - `qa: <question> ::: <optional context>`
-
-3. **Fallback:** runs a small **demo** (summarize + Q&A).
-
----
-
-## Agents & Tasks (CrewAI)
-
-- **Concise Summarizer**  
-  Role: distill text into short, plain-language bullets with headers (preserve key names/numbers).  
-  Tools: `FileWriterTool()`
-
-- **Practical Q&A Specialist**  
-  Role: answer directly using context; if insufficient and search is available, do a brief search and synthesize.  
-  Tools: `FileWriterTool()`, `SerperDevTool()` *(enabled only if `SERPER_API_KEY` is set)*
-
-Both run **sequentially** in demo mode via `Crew(…, process=Process.sequential)`.
+### Crew
+- Orchestration mode: **sequential** (summarizer runs before Q&A in demo mode)  
+- Agents cannot delegate to each other (each handles its own task directly)  
+- Tools:  
+  - `FileWriterTool()` (both agents)  
+  - `SerperDevTool()` (Q&A agent, only if `SERPER_API_KEY` is set)  
 
 ---
 
-## Environment Variables
+## ⚙️ Workflow
 
-Recommended (set what you need):
+1. **Startup:**  
+   - User runs `python main.py` and selects a mode (`demo`, `summarize`, or `qa`).  
 
-- `OPENAI_API_KEY` — used by CrewAI/OpenAI tools   
-- `DOMAIN_NAME` — e.g., `ysqiu.com`; if set **with** cert paths, HTTPS is enabled in-app  
-- `CERT_FILE`, `KEY_FILE` — absolute paths to TLS cert & key for in-app HTTPS (e.g., Let’s Encrypt)  
-- `REGISTRY_URL` — NANDA registry base (overridden by `registry_url.txt` if present)
+2. **Agent Creation:**  
+   - Summarizer agent is always available.  
+   - Q&A agent is created only if `demo` or `qa` mode is chosen.  
 
-> If `DOMAIN_NAME` is set **without** `CERT_FILE`/`KEY_FILE`, the app falls back to **HTTP dev server** and prints a warning.
+3. **Task Assignment:**  
+   - Summarization task: created with input text.  
+   - Q&A task: created with question + context.  
+
+4. **Crew Execution:**  
+   - CrewAI runs tasks sequentially.  
+   - Agents generate outputs.  
+   - Results are printed to the terminal (and optionally saved to files).  
 
 ---
 
-# Deployment Steps
+## 🖥️ Modes
 
-### 1. Connect to the Server
-```bash
-ssh -i <YOUR_PEM_KEY> ec2-user@<EC2_PUBLIC_IP>
-```
+### 1. Demo mode
+- **Input:** built-in sample about Federated Learning.  
+- **Process:**  
+  1. Summarizer creates bullets from sample text.  
+  2. Q&A agent answers: *“What are the key challenges mentioned?”*  
+- **Output:** printed summary + Q&A in terminal, with possible files saved.  
 
-### 2. Update System Packages & Install Dependencies
-```bash
-sudo dnf update -y
-sudo dnf install -y python3.11 python3.11-pip certbot
-```
+### 2. Summarize mode
+- **Input:**  
+  - User pastes custom text into terminal (or presses ENTER for a default short sample).  
+- **Process:**  
+  - Summarizer condenses input into 5–10 bullets.  
+- **Output:** printed summary, optionally saved to `summary.md`.  
 
-### 3. Create and Activate a Virtual Environment
-Navigate to the project folder (where your files are stored) and run:
-```bash
-python3.11 -m venv <YOUR_ENV_NAME>
-source <YOUR_ENV_NAME>/bin/activate
-```
+### 3. QA mode
+- **Input:**  
+  - User provides a question.  
+  - User may optionally paste context text (or leave blank).  
+- **Process:**  
+  - Q&A agent answers using context; if insufficient and web search is available, it can search.  
+- **Output:** printed direct answer + short explanation, optionally saved to `answer.md`.  
 
-### 4. Generate SSL Certificates
-Ensure your domain name points to this EC2 instance. Then run:
-```bash
-sudo certbot certonly --standalone -d <YOUR_DOMAIN_NAME>
-```
+---
 
-### 5. Copy Certificates Into Project Folder
-Replace `<YOUR_DOMAIN_NAME>` with your actual domain:
-```bash
-sudo cp -L /etc/letsencrypt/live/<YOUR_DOMAIN_NAME>/fullchain.pem .
-sudo cp -L /etc/letsencrypt/live/<YOUR_DOMAIN_NAME>/privkey.pem .
-sudo chown $USER:$USER fullchain.pem privkey.pem
-chmod 600 fullchain.pem privkey.pem
-```
+## 🚀 How to Use
 
-### 6. Install Python Requirements
+### 1. Set up environment
 ```bash
-python -m pip install --upgrade pip
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 7. Configure Environment Variables
-Export the required environment variables (see Environment Variables section in README for details):
-```bash
-export OPENAI_API_KEY="sk-..."
-export DOMAIN_NAME="<YOUR_DOMAIN_NAME>"
-export CERT_FILE="$(pwd)/fullchain.pem"
-export KEY_FILE="$(pwd)/privkey.pem"
+### 2. Set API key
+You need an **OpenAI API key**.
+
+#### PowerShell (Windows)
+```powershell
+$env:OPENAI_API_KEY="sk-your-key-here"
 ```
 
-### 8. Run the Agent as a Background Process
+#### macOS/Linux
 ```bash
-nohup python3 nanda_agent.py > out.log 2>&1 &
+export OPENAI_API_KEY="sk-your-key-here"
 ```
 
-### 9. Check Logs for Enrollment Link
+*(Optional)* If you want the Q&A agent to use **web search**:
 ```bash
-cat out.log
+export SERPER_API_KEY="your-serper-key"
 ```
-Look for a printed URL containing your `agentId`.
 
-### 10. Register the Agent
-Copy the enrollment link from the log output and open it in your browser to complete registration.
+### 3. Run the program
+```bash
+python main.py
+```
 
+Choose one of:
+- `demo` → run both summarizer + Q&A with a sample text  
+- `summarize` → paste your own text for summarization  
+- `qa` → ask a question, optionally provide context  
 
-## Registry URL Resolution
+---
 
-`nanda_agent.py` chooses the registry URL by:
-1. `registry_url.txt` (if present in CWD), else
-2. `REGISTRY_URL` env var, else
-3. default `https://chat.nanda-registry.com`
+## ✅ Test Cases
 
-It prints which source it used.
+1. **Demo (default)**  
+   ```text
+   Choose mode: [demo | summarize | qa]
+   demo
+   ```
+   - Expected: Summary of federated learning, then an answer listing challenges (client heterogeneity, stragglers, privacy, connectivity).  
 
+2. **Summarize custom text**  
+   ```
+   summarize
+   Text: "Harvard's Data Science program combines statistics, machine learning, and computation..."
+   ```
+   - Expected: 5–10 bullets about program highlights.  
+
+3. **Q&A with context**  
+   ```
+   qa
+   Question: What is the main advantage of AI summarization?
+   Context: AI summarization reduces reading time by extracting key points automatically.
+   ```
+   - Expected: Answer: “The main advantage is efficiency/time-savings.”  
+
+4. **Q&A without context** (SERPER key enabled)  
+   ```
+   qa
+   Question: Who invented federated learning?
+   Context: [press ENTER]
+   ```
+   - Expected: Web search + answer (Google researchers, 2016).  
+
+---
+
+## 🧪 Notes & Tips
+- If you get `RateLimitError` or `insufficient_quota`, check your OpenAI **billing/quota**.  
+- Default model: CrewAI uses GPT-4 class unless overridden. You can save costs by specifying `gpt-4o-mini` in agent definitions.  
+- CrewAI’s logging is verbose: you’ll see task execution steps in your terminal.  
+
+---
+
+## ✅ What Worked / What Didn’t
+
+### What Worked
+- CrewAI orchestration of **two agents in sequence** works as expected.  
+- Personas (`backstory`) help guide style (concise bullets, evidence-based answers).  
+- FileWriterTool successfully saves summaries/answers when configured.  
+- Modes (`demo`, `summarize`, `qa`) allow flexible testing from the terminal.  
+
+### What Didn’t (Limitations)
+- **Quota dependency:** Must have an active OpenAI billing plan, otherwise runs fail with quota errors.  
+- **Local models not integrated:** Hosting/running with Ollama or Hugging Face models would require extra setup (this project is tested only with OpenAI API).  
+- **File saving behavior:** FileWriterTool may not always save output if the model ignores instructions.  
+- **Search tool limits:** `SerperDevTool` requires a SERPER API key and may have rate limits.  
+- **No persistent memory:** Agents don’t remember past runs (stateless by design).  
+
+---
 
 ## 🤖 AI Assistance Acknowledgment
 Approximately **80% of the code was generated with AI assistance** (ChatGPT / GPT-5).  
 ---
 
+## 📂 File Overview
+
+- **main.py** → agents, tasks, crew, runner (all-in-one)  
+- **requirements.txt** → dependencies (`crewai`, `crewai-tools`)  
+- **README.md** → this documentation  
