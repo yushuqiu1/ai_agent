@@ -138,6 +138,6 @@ It prints which source it used.
 
 
 ## 🤖 AI Assistance Acknowledgment
-Approximately **80% of the code was generated with AI assistance** (ChatGPT / GPT-5).  
+Approximately **80% of the code (and some of the README / texts) was generated with AI assistance** (ChatGPT / GPT-5).  
 ---
 
