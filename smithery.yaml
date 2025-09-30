@@ -1,25 +1,6 @@
-# Smithery configuration file: https://smithery.ai/docs/build/project-config
-# Place this at the **repo root**.
-# Config to run a Python MCP server over STDIO.
-
+runtime: "container"
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."
 startCommand:
-  type: stdio
-  command: python
-  args:
-    - mcp_hw3/simple_mcp_server.py
-
-runtime:
-  language: python
-  version: "3.11"
-
-# Optional: define user-adjustable settings passed as CLI args/env, if needed.
-# See: https://smithery.ai/docs/build/session-config
-# configSchema:
-#   type: object
-#   properties:
-#     exampleFlag:
-#       type: string
-#       description: Example value passed to your server at startup.
-#   required: []
-# exampleConfig:
-#   exampleFlag: "foo"
+  type: "http"
