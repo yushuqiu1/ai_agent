@@ -36,8 +36,9 @@ pip install -r requirements.txt
 
 ```
 .
-├── server.py          # your MCP server (the code you shared)
+├── simple_mcp_server.py          # your MCP server (the code you shared)
 ├── requirements.txt   # Python dependencies
+|── smitery.YAML / Dockerfile # for smithery deployment
 └── README.md          # this file
 ```
 
@@ -52,14 +53,13 @@ pip install -r requirements.txt
      "mcpServers": {
        "simple-mcp-server": {
          "command": "python",
-         "args": ["<ABSOLUTE_PATH>/server.py"]
+         "args": ["<ABSOLUTE_PATH>/simple_mcp_server.py"]
        }
      }
    }
    ```
 
-   - Replace `<ABSOLUTE_PATH>/server.py` with the full path to your `server.py`.
-   - On Windows, use a path like: `"D:/Harvard/Fall2025/ai_agent/mcp-time/server.py"`.
+   - Replace `<ABSOLUTE_PATH>/simple_mcp_server.py` with the full path to your `simple_mcp_server.py`.
 
 2. **Restart Claude Desktop.** It will spawn the server and register the tools automatically.
 
@@ -107,7 +107,7 @@ It will wait for stdio messages from an MCP client. You can press `Ctrl+C` to ex
 - **Claude Desktop doesn’t see the server**  
   - Make sure the path in your config is correct and absolute.  
   - Confirm Python can import the `mcp` package: `python -c "import mcp; print(mcp.__version__)"`  
-  - Check whether your `server.py` runs: `python server.py` (it should block, waiting on stdio).
+  - Check whether your `simple_mcp_server.py` runs: `python simple_mcp_server.py` (it should block, waiting on stdio).
 
 - **Windows (WSL) path issues**  
   - If your code lives on `D:` but you run through WSL, ensure the path and command are correct.  
