@@ -78,7 +78,7 @@ def _recommend_text(prompt: str, limit: int = 3) -> str:
     top = [r for r in ranked if r[2] > 0][:limit] or ranked[:1]
     lines = [f"🎵 Song recommendations for: \"{prompt}\""]
     for i, (title, artist, score) in enumerate(top, 1):
-        lines.append(f\"{i}. {title} — {artist} (match score {score})\")
+        lines.append(f"{i}. {title} — {artist} (match score {score})")
     return "\\n".join(lines)
 
 # --------------------------- STDIO (Option A) ---------------------------
