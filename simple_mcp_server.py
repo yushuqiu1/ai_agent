@@ -1,14 +1,19 @@
+#!/usr/bin/env python3
+import os
+import asyncio
+from typing import List, Tuple, Set
+
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent, Resource
-import asyncio
+try:
+    # Fast (HTTP) transport pieces. These are optional unless MCP_TRANSPORT=http
+    from mcp.server import FastMCP
+    import uvicorn  # type: ignore
+except Exception:
+    FastMCP = None  # type: ignore
 
-# Create server instance
-server = Server("simple-mcp-server")
-
-# ---------- Tiny in-memory "catalog" + matcher ----------
-_SONGS = [
-    # (title, artist, tags)
+# --------------------------- Shared song logic ---------------------------
+_SONGS: List[Tuple[str, str, Set[str]]] = [
     ("Blinding Lights", "The Weeknd", {"pop", "upbeat", "80s", "night", "energetic", "synth"}),
     ("Nights", "Frank Ocean", {"rnb", "moody", "late", "reflective", "chill"}),
     ("Mr. Brightside", "The Killers", {"rock", "indie", "upbeat", "anthem", "2000s"}),
@@ -26,7 +31,6 @@ _SONGS = [
 ]
 
 _KEYWORDS = {
-    # moods
     "happy": {"upbeat", "feelgood", "dance", "anthem"},
     "sad": {"melancholy", "tender", "reflective"},
     "chill": {"chill", "calm", "relax", "ambient"},
@@ -35,7 +39,6 @@ _KEYWORDS = {
     "night": {"night", "late"},
     "romance": {"romantic", "tender", "warm"},
     "hype": {"banger", "energy", "energetic", "anthem"},
-    # genres
     "pop": {"pop"},
     "rock": {"rock"},
     "indie": {"indie"},
@@ -44,37 +47,46 @@ _KEYWORDS = {
     "classical": {"classical", "piano"},
     "rnb": {"rnb"},
     "ambient": {"ambient"},
-    # vibes/eras
     "80s": {"80s", "synth"},
     "summer": {"summer", "nostalgic"},
     "dark": {"dark"},
 }
 
-def _score_prompt(prompt: str) -> list[tuple[str, str, int]]:
+def _score_prompt(prompt: str) -> List[Tuple[str, str, int]]:
     p = prompt.lower()
-    wanted = set()
+    wanted: Set[str] = set()
     for key, tags in _KEYWORDS.items():
         if key in p:
             wanted |= tags
-    # also split raw words to match tags directly
     for word in p.replace(",", " ").replace(".", " ").split():
         if word in {t for _, _, ts in _SONGS for t in ts}:
             wanted.add(word)
 
-    scored = []
+    scored: List[Tuple[str, str, int]] = []
     for title, artist, tags in _SONGS:
         score = len(tags & wanted)
-        # small bonus for exact title/artist mentions
-        if title.lower() in p: score += 3
-        if artist.lower() in p: score += 2
+        if title.lower() in p:
+            score += 3
+        if artist.lower() in p:
+            score += 2
         scored.append((title, artist, score))
     scored.sort(key=lambda x: x[2], reverse=True)
     return scored
 
-# -------------------------------------------------------
+def _recommend_text(prompt: str, limit: int = 3) -> str:
+    ranked = _score_prompt(prompt)
+    top = [r for r in ranked if r[2] > 0][:limit] or ranked[:1]
+    lines = [f"🎵 Song recommendations for: \"{prompt}\""]
+    for i, (title, artist, score) in enumerate(top, 1):
+        lines.append(f\"{i}. {title} — {artist} (match score {score})\")
+    return "\\n".join(lines)
 
-# Define tools
-@server.list_tools()
+# --------------------------- STDIO (Option A) ---------------------------
+stdio_srv = Server("simple-mcp-server")
+
+from mcp.types import Tool, TextContent, Resource  # only for stdio registration
+
+@stdio_srv.list_tools()
 async def list_tools() -> list[Tool]:
     return [
         Tool(
@@ -82,11 +94,9 @@ async def list_tools() -> list[Tool]:
             description="Returns a personalized greeting message",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "The name to greet"}
-                },
-                "required": ["name"]
-            }
+                "properties": {"name": {"type": "string", "description": "The name to greet"}},
+                "required": ["name"],
+            },
         ),
         Tool(
             name="add_numbers",
@@ -95,10 +105,10 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "a": {"type": "number", "description": "First number"},
-                    "b": {"type": "number", "description": "Second number"}
+                    "b": {"type": "number", "description": "Second number"},
                 },
-                "required": ["a", "b"]
-            }
+                "required": ["a", "b"],
+            },
         ),
         Tool(
             name="recommend_song",
@@ -106,87 +116,88 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "prompt": {
-                        "type": "string",
-                        "description": "Describe what you want (e.g., 'chill night study music, indie/ambient')."
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Max number of results (default 3).",
-                        "minimum": 1,
-                        "maximum": 10
-                    }
+                    "prompt": {"type": "string", "description": "Describe what you want (e.g., 'chill night study music, indie/ambient')."},
+                    "limit": {"type": "integer", "description": "Max number of results (default 3).", "minimum": 1, "maximum": 10},
                 },
-                "required": ["prompt"]
-            }
-        )
+                "required": ["prompt"],
+            },
+        ),
     ]
 
-# Implement tool handlers
-@server.call_tool()
+@stdio_srv.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     if name == "get_greeting":
         person_name = arguments.get("name", "friend")
         message = f"Hello, {person_name}! Welcome to the MCP server."
         return [TextContent(type="text", text=message)]
-
     elif name == "add_numbers":
         a = arguments.get("a", 0)
         b = arguments.get("b", 0)
-        result = a + b
-        return [TextContent(type="text", text=f"The sum of {a} and {b} is {result}")]
-
+        return [TextContent(type="text", text=f"The sum of {a} and {b} is {a + b}")]
     elif name == "recommend_song":
         prompt = (arguments.get("prompt") or "").strip()
         limit = int(arguments.get("limit") or 3)
         if not prompt:
             return [TextContent(type="text", text="Please provide a non-empty prompt.")]
-
-        ranked = _score_prompt(prompt)
-        top = [r for r in ranked if r[2] > 0][:limit] or ranked[:1]  # fall back to a single general pick
-
-        lines = [f"🎵 Song recommendations for: \"{prompt}\""]
-        for i, (title, artist, score) in enumerate(top, 1):
-            lines.append(f"{i}. {title} — {artist} (match score {score})")
-        return [TextContent(type="text", text="\n".join(lines))]
-
+        return [TextContent(type="text", text=_recommend_text(prompt, limit))]
     else:
         raise ValueError(f"Unknown tool: {name}")
 
-# Define resources
-@server.list_resources()
+@stdio_srv.list_resources()
 async def list_resources() -> list[Resource]:
     return [
-        Resource(
-            uri="demo://info",
-            name="Server Information",
-            mimeType="text/plain",
-            description="Information about this MCP server"
-        )
+        Resource(uri="demo://info", name="Server Information", mimeType="text/plain", description="Information about this MCP server")
     ]
 
-@server.read_resource()
+@stdio_srv.read_resource()
 async def read_resource(uri: str) -> str:
     if uri == "demo://info":
-        return """Simple MCP Server
-
-This is a demonstration MCP server with basic functionality:
-- get_greeting: Returns a personalized greeting
-- add_numbers: Adds two numbers together
-- recommend_song: Recommends songs based on a free-text prompt
-
-Built with the Python MCP SDK."""
-    else:
-        raise ValueError(f"Unknown resource: {uri}")
-
-async def main():
-    """Run the server using stdio transport"""
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            server.create_initialization_options()
+        return (
+            "Simple MCP Server\\n\\n"
+            "- get_greeting: Returns a personalized greeting\\n"
+            "- add_numbers: Adds two numbers together\\n"
+            "- recommend_song: Recommends songs based on a free-text prompt\\n"
+            "Built with the Python MCP SDK."
         )
+    raise ValueError(f"Unknown resource: {uri}")
+
+# --------------------------- HTTP (Option B) ---------------------------
+# We define an HTTP app only if the optional deps are available.
+http_app = None
+if FastMCP is not None:
+    mcp_http = FastMCP("simple-mcp-server")
+
+    @mcp_http.tool()
+    async def get_greeting(name: str) -> str:
+        return f"Hello, {name}! Welcome to the MCP server."
+
+    @mcp_http.tool()
+    async def add_numbers(a: float, b: float) -> str:
+        return f"The sum of {a} and {b} is {a + b}"
+
+    @mcp_http.tool()
+    async def recommend_song(prompt: str, limit: int = 3) -> str:
+        if not prompt.strip():
+            return "Please provide a non-empty prompt."
+        return _recommend_text(prompt, limit)
+
+    # Exportable ASGI app (FastAPI/Starlette) for uvicorn
+    http_app = mcp_http.streamable_http_app()
+
+# --------------------------- Entrypoint ---------------------------
+async def run_stdio():
+    async with stdio_server() as (r, w):
+        await stdio_srv.run(r, w, stdio_srv.create_initialization_options())
+
+def run_http():
+    if http_app is None:
+        raise RuntimeError("HTTP transport requested but FastMCP/uvicorn not available. Install 'uvicorn' and a recent 'mcp'.")
+    port = int(os.getenv("PORT", "8080"))
+    uvicorn.run(http_app, host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    transport = os.getenv("MCP_TRANSPORT", "stdio").lower()
+    if transport == "http":
+        run_http()
+    else:
+        asyncio.run(run_stdio())

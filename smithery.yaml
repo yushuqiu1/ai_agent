@@ -1,6 +1,16 @@
-runtime: "container"
-build:
-  dockerfile: "Dockerfile"
-  dockerBuildPath: "."
+# Smithery config for hosted HTTP (Option B). Keep a single config and switch by env.
+# In Smithery we set MCP_TRANSPORT=http so the same code runs an HTTP server.
 startCommand:
-  type: "http"
+  type: docker
+  imageBuild:
+    dockerfile: Dockerfile
+  env:
+    MCP_TRANSPORT: http
+    PORT: "8080"
+  command: python
+  args:
+    - simple_mcp_server.py
+
+runtime:
+  language: python
+  version: "3.11"
