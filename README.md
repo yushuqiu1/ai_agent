@@ -1,197 +1,134 @@
-# CrewAI Minimal — Two Agents (Summarizer & Q&A)
+# Simple MCP Server — Song Recommender Demo
 
-This project is a **minimal CrewAI assignment implementation** with just **three files**:
+[![smithery badge](https://smithery.ai/badge/@yushuqiu1/ai_agent_new)](https://smithery.ai/server/@yushuqiu1/ai_agent_new)
 
-- `main.py` — all code in one file (agents, tasks, crew, runner)  
-- `README.md` — this documentation  
-- `requirements.txt` — dependencies  
+This is a **Model Context Protocol (MCP)** server written in Python.  
+It exposes three tools over **stdio** for MCP-native clients (e.g., Claude Desktop):
 
-It demonstrates how to build a **CrewAI system with two agents** that embody a “digital twin lite” persona of a student (Yushu).  
+- `get_greeting(name: string)` — return a friendly greeting
+- `add_numbers(a: number, b: number)` — add two numbers
+- `recommend_song(prompt: string, limit?: integer)` — keyword/vibe-based song recommendations
 
----
+> Server name: `simple-mcp-server`
 
-## ✨ Design
 
-### Agents
-1. **Concise Summarizer**  
-   - **Role:** Condenses text into clear, structured bullet points  
-   - **Goal:** Produce 5–10 plain-language bullets with short headers  
-   - **Persona (backstory):** Yushu’s “digital twin lite” for summarization — concise, action-oriented, preserving key numbers/names  
+## 1) Prerequisites
 
-2. **Practical Q&A Specialist**  
-   - **Role:** Answers user questions based on context (or via optional web search)  
-   - **Goal:** Provide direct answers, with short explanation + next steps/tips  
-   - **Persona (backstory):** Evidence-minded, pragmatic, includes short “how I got this” notes  
+- Python 3.10+ (3.11 recommended)
+- `pip` (or `uv`/`pipx` if you prefer)
+- An MCP client (e.g., **Claude Desktop**)
 
-### Tasks
-- **Summarization Task**  
-  - Input: free-form text  
-  - Output: Markdown bullets with title, sections, and optional action items  
-  - Saved to `summary.md` if `FileWriterTool` is used  
 
-- **Q&A Task**  
-  - Input: a user’s question, plus optional context  
-  - Output: Direct markdown answer + explanation (+ sources if applicable)  
-  - Saved to `answer.md` if `FileWriterTool` is used  
+## 2) Install
 
-### Crew
-- Orchestration mode: **sequential** (summarizer runs before Q&A in demo mode)  
-- Agents cannot delegate to each other (each handles its own task directly)  
-- Tools:  
-  - `FileWriterTool()` (both agents)  
-  - `SerperDevTool()` (Q&A agent, only if `SERPER_API_KEY` is set)  
+Create and activate a virtual environment (recommended), then install deps:
 
----
-
-## ⚙️ Workflow
-
-1. **Startup:**  
-   - User runs `python main.py` and selects a mode (`demo`, `summarize`, or `qa`).  
-
-2. **Agent Creation:**  
-   - Summarizer agent is always available.  
-   - Q&A agent is created only if `demo` or `qa` mode is chosen.  
-
-3. **Task Assignment:**  
-   - Summarization task: created with input text.  
-   - Q&A task: created with question + context.  
-
-4. **Crew Execution:**  
-   - CrewAI runs tasks sequentially.  
-   - Agents generate outputs.  
-   - Results are printed to the terminal (and optionally saved to files).  
-
----
-
-## 🖥️ Modes
-
-### 1. Demo mode
-- **Input:** built-in sample about Federated Learning.  
-- **Process:**  
-  1. Summarizer creates bullets from sample text.  
-  2. Q&A agent answers: *“What are the key challenges mentioned?”*  
-- **Output:** printed summary + Q&A in terminal, with possible files saved.  
-
-### 2. Summarize mode
-- **Input:**  
-  - User pastes custom text into terminal (or presses ENTER for a default short sample).  
-- **Process:**  
-  - Summarizer condenses input into 5–10 bullets.  
-- **Output:** printed summary, optionally saved to `summary.md`.  
-
-### 3. QA mode
-- **Input:**  
-  - User provides a question.  
-  - User may optionally paste context text (or leave blank).  
-- **Process:**  
-  - Q&A agent answers using context; if insufficient and web search is available, it can search.  
-- **Output:** printed direct answer + short explanation, optionally saved to `answer.md`.  
-
----
-
-## 🚀 How to Use
-
-### 1. Set up environment
 ```bash
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+# macOS/Linux
+source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-### 2. Set API key
-You need an **OpenAI API key**.
 
-#### PowerShell (Windows)
-```powershell
-$env:OPENAI_API_KEY="sk-your-key-here"
+## 3) Project Layout
+
+```
+.
+├── simple_mcp_server.py          # your MCP server (the code you shared)
+├── requirements.txt   # Python dependencies
+|── smitery.YAML / Dockerfile # for smithery deployment
+└── README.md          # this file
 ```
 
-#### macOS/Linux
+
+## 4) Run with Claude Desktop (recommended)
+
+1. **Add the MCP server to Claude Desktop config.**  
+   Open (or create) your Claude Desktop config file and add an entry like:
+
+   ```json
+   {
+     "mcpServers": {
+       "simple-mcp-server": {
+         "command": "python",
+         "args": ["<ABSOLUTE_PATH>/simple_mcp_server.py"]
+       }
+     }
+   }
+   ```
+
+   - Replace `<ABSOLUTE_PATH>/simple_mcp_server.py` with the full path to your `simple_mcp_server.py`.
+
+2. **Restart Claude Desktop.** It will spawn the server and register the tools automatically.
+
+3. **Test inside Claude.** Try any of these messages:
+   - *“Use the `recommend_song` tool with prompt = 'chill ambient study at night' and limit = 3.”*
+   - *“Recommend a hype pop banger for a workout.”*
+   - *“Call `get_greeting` for Yushu.”*
+   - *“Add 41 and 59 with the `add_numbers` tool.”*
+
+
+## 5) (Optional) Run directly from a terminal
+
+This server speaks MCP over **stdio**, so it’s meant to be launched by an MCP client.  
+If you just want to check that it **starts** without errors:
+
 ```bash
-export OPENAI_API_KEY="sk-your-key-here"
+python server.py
 ```
 
-*(Optional)* If you want the Q&A agent to use **web search**:
-```bash
-export SERPER_API_KEY="your-serper-key"
-```
+It will wait for stdio messages from an MCP client. You can press `Ctrl+C` to exit.
 
-### 3. Run the program
-```bash
-python main.py
-```
 
-Choose one of:
-- `demo` → run both summarizer + Q&A with a sample text  
-- `summarize` → paste your own text for summarization  
-- `qa` → ask a question, optionally provide context  
+## 6) Tool Schemas (for reference)
 
----
+### `recommend_song`
+- **description:** Recommends songs based on a free-text prompt (mood/genre/vibe/era).
+- **input:**
+  ```json
+  {
+    "prompt": "string (required)",
+    "limit": 1..10 (optional, default 3)
+  }
+  ```
+- **output:** Text with a small ranked list and match scores.
 
-## ✅ Test Cases
+### `get_greeting`
+- **input:** `{ "name": "string" }` → text greeting
 
-1. **Demo (default)**  
-   ```text
-   Choose mode: [demo | summarize | qa]
-   demo
-   ```
-   - Expected: Summary of federated learning, then an answer listing challenges (client heterogeneity, stragglers, privacy, connectivity).  
+### `add_numbers`
+- **input:** `{ "a": number, "b": number }` → text with the sum
 
-2. **Summarize custom text**  
-   ```
-   summarize
-   Text: "Harvard's Data Science program combines statistics, machine learning, and computation..."
-   ```
-   - Expected: 5–10 bullets about program highlights.  
 
-3. **Q&A with context**  
-   ```
-   qa
-   Question: What is the main advantage of AI summarization?
-   Context: AI summarization reduces reading time by extracting key points automatically.
-   ```
-   - Expected: Answer: “The main advantage is efficiency/time-savings.”  
+## 7) Troubleshooting
 
-4. **Q&A without context** (SERPER key enabled)  
-   ```
-   qa
-   Question: Who invented federated learning?
-   Context: [press ENTER]
-   ```
-   - Expected: Web search + answer (Google researchers, 2016).  
+- **Claude Desktop doesn’t see the server**  
+  - Make sure the path in your config is correct and absolute.  
+  - Confirm Python can import the `mcp` package: `python -c "import mcp; print(mcp.__version__)"`  
+  - Check whether your `simple_mcp_server.py` runs: `python simple_mcp_server.py` (it should block, waiting on stdio).
 
----
+- **Windows (WSL) path issues**  
+  - If your code lives on `D:` but you run through WSL, ensure the path and command are correct.  
+  - You can also set the Claude entry to use `wsl`:
+    ```json
+    {
+      "command": "wsl",
+      "args": ["bash", "-lc", "python /mnt/d/harvard/fall2025/ai_agent/mcp-time/server.py"]
+    }
+    ```
 
-## 🧪 Notes & Tips
-- If you get `RateLimitError` or `insufficient_quota`, check your OpenAI **billing/quota**.  
-- Default model: CrewAI uses GPT-4 class unless overridden. You can save costs by specifying `gpt-4o-mini` in agent definitions.  
-- CrewAI’s logging is verbose: you’ll see task execution steps in your terminal.  
+- **Virtual environment not picked up**  
+  - Point `command` to the venv’s Python:
+    - Windows: `"<ABS_PATH>/.venv/Scripts/python.exe"`  
+    - macOS/Linux: `"<ABS_PATH>/.venv/bin/python"`
 
----
 
-## ✅ What Worked / What Didn’t
+## 8) License
 
-### What Worked
-- CrewAI orchestration of **two agents in sequence** works as expected.  
-- Personas (`backstory`) help guide style (concise bullets, evidence-based answers).  
-- FileWriterTool successfully saves summaries/answers when configured.  
-- Modes (`demo`, `summarize`, `qa`) allow flexible testing from the terminal.  
+MIT (or your preferred license).
 
-### What Didn’t (Limitations)
-- **Quota dependency:** Must have an active OpenAI billing plan, otherwise runs fail with quota errors.  
-- **Local models not integrated:** Hosting/running with Ollama or Hugging Face models would require extra setup (this project is tested only with OpenAI API).  
-- **File saving behavior:** FileWriterTool may not always save output if the model ignores instructions.  
-- **Search tool limits:** `SerperDevTool` requires a SERPER API key and may have rate limits.  
-- **No persistent memory:** Agents don’t remember past runs (stateless by design).  
-
----
-
-## 🤖 AI Assistance Acknowledgment
-Approximately **80% of the code was generated with AI assistance** (ChatGPT / GPT-5).  
----
-
-## 📂 File Overview
-
-- **main.py** → agents, tasks, crew, runner (all-in-one)  
-- **requirements.txt** → dependencies (`crewai`, `crewai-tools`)  
-- **README.md** → this documentation  
+Enjoy building with MCP! 🎶
