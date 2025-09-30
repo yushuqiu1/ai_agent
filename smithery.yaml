@@ -10,5 +10,4 @@ startCommand:
   args:
     - "simple_mcp_server.py"
   env:
-    MCP_TRANSPORT: "http"   # our code switches to HTTP transport when set
-    PORT: "8080"            # uvicorn will bind to this port
+    PORT: "8080"

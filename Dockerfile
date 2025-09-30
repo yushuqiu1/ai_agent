@@ -1,20 +1,22 @@
+# Python slim base
 FROM python:3.11-slim
 
-ENV PIP_NO_CACHE_DIR=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+# System deps (optional but handy)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
+# Workdir
 WORKDIR /app
 
-# Install deps first for layer caching
-COPY requirements.txt ./
-RUN pip install -r requirements.txt
+# Install deps first (better layer caching)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source
-COPY . .
+# Copy server code
+COPY simple_mcp_server.py .
 
-# Expose default port for HTTP mode
-EXPOSE 8080
+# App port (Smithery maps this automatically)
+ENV PORT=8080
 
-# Default: run the unified server. (Smithery overrides env to MCP_TRANSPORT=http)
+# Start uvicorn
 CMD ["python", "simple_mcp_server.py"]
