@@ -1,16 +1,14 @@
-# Smithery config for hosted HTTP (Option B). Keep a single config and switch by env.
-# In Smithery we set MCP_TRANSPORT=http so the same code runs an HTTP server.
-startCommand:
-  type: docker
-  imageBuild:
-    dockerfile: Dockerfile
-  env:
-    MCP_TRANSPORT: http
-    PORT: "8080"
-  command: python
-  args:
-    - simple_mcp_server.py
+runtime: "container"
 
-runtime:
-  language: python
-  version: "3.11"
+build:
+  dockerfile: "Dockerfile"
+  dockerBuildPath: "."
+
+startCommand:
+  type: "http"
+  command: "python"
+  args:
+    - "simple_mcp_server.py"
+  env:
+    MCP_TRANSPORT: "http"   # our code switches to HTTP transport when set
+    PORT: "8080"            # uvicorn will bind to this port
