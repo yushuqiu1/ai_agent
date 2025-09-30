@@ -1,143 +1,132 @@
-# CrewAI × NANDA Bridge — Summarize & Q&A Agent
+# Simple MCP Server — Song Recommender Demo
 
-A minimal **CrewAI** agent exposed via a **NANDA** bridge. It registers with the NANDA registry and serves two capabilities:
+This is a **Model Context Protocol (MCP)** server written in Python.  
+It exposes three tools over **stdio** for MCP-native clients (e.g., Claude Desktop):
 
-- **Summarize:** turn text into crisp, structured bullets  
-- **Q&A:** answer a question using provided context (and optional web search)
+- `get_greeting(name: string)` — return a friendly greeting
+- `add_numbers(a: number, b: number)` — add two numbers
+- `recommend_song(prompt: string, limit?: integer)` — keyword/vibe-based song recommendations
 
-All orchestration lives in a single file: **`nanda_agent.py`**, which uses your **`nanda_adapter.NANDA`** bridge.
-
-Below is the screenshot showing that my registry is successful and I received the link:
+> Server name: `simple-mcp-server`
 
 
----
+## 1) Prerequisites
 
-## Deployment Context
+- Python 3.10+ (3.11 recommended)
+- `pip` (or `uv`/`pipx` if you prefer)
+- An MCP client (e.g., **Claude Desktop**)
 
-- **Domain:** I own `ysqiu.com` via Namecheap and point it to my EC2 instance.  
-- **Infrastructure:** Amazon Linux EC2 instance, following setup instructions.  
 
----
+## 2) Install
 
-## How It Decides What To Do
+Create and activate a virtual environment (recommended), then install deps:
 
-Incoming message parsing (in order):
-
-1. **JSON payload** (preferred)
-   - `{"mode":"summarize","text":"..."}`
-   - `{"mode":"qa","question":"...","context":"..."}`
-
-2. **Command prefixes**
-   - `summarize: <text>`
-   - `qa: <question> ::: <optional context>`
-
-3. **Fallback:** runs a small **demo** (summarize + Q&A).
-
----
-
-## Agents & Tasks (CrewAI)
-
-- **Concise Summarizer**  
-  Role: distill text into short, plain-language bullets with headers (preserve key names/numbers).  
-  Tools: `FileWriterTool()`
-
-- **Practical Q&A Specialist**  
-  Role: answer directly using context; if insufficient and search is available, do a brief search and synthesize.  
-  Tools: `FileWriterTool()`, `SerperDevTool()` *(enabled only if `SERPER_API_KEY` is set)*
-
-Both run **sequentially** in demo mode via `Crew(…, process=Process.sequential)`.
-
----
-
-## Environment Variables
-
-Recommended (set what you need):
-
-- `OPENAI_API_KEY` — used by CrewAI/OpenAI tools   
-- `DOMAIN_NAME` — e.g., `ysqiu.com`; if set **with** cert paths, HTTPS is enabled in-app  
-- `CERT_FILE`, `KEY_FILE` — absolute paths to TLS cert & key for in-app HTTPS (e.g., Let’s Encrypt)  
-- `REGISTRY_URL` — NANDA registry base (overridden by `registry_url.txt` if present)
-
-> If `DOMAIN_NAME` is set **without** `CERT_FILE`/`KEY_FILE`, the app falls back to **HTTP dev server** and prints a warning.
-
----
-
-# Deployment Steps
-
-### 1. Connect to the Server
 ```bash
-ssh -i <YOUR_PEM_KEY> ec2-user@<EC2_PUBLIC_IP>
-```
+python -m venv .venv
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+# macOS/Linux
+source .venv/bin/activate
 
-### 2. Update System Packages & Install Dependencies
-```bash
-sudo dnf update -y
-sudo dnf install -y python3.11 python3.11-pip certbot
-```
-
-### 3. Create and Activate a Virtual Environment
-Navigate to the project folder (where your files are stored) and run:
-```bash
-python3.11 -m venv <YOUR_ENV_NAME>
-source <YOUR_ENV_NAME>/bin/activate
-```
-
-### 4. Generate SSL Certificates
-Ensure your domain name points to this EC2 instance. Then run:
-```bash
-sudo certbot certonly --standalone -d <YOUR_DOMAIN_NAME>
-```
-
-### 5. Copy Certificates Into Project Folder
-Replace `<YOUR_DOMAIN_NAME>` with your actual domain:
-```bash
-sudo cp -L /etc/letsencrypt/live/<YOUR_DOMAIN_NAME>/fullchain.pem .
-sudo cp -L /etc/letsencrypt/live/<YOUR_DOMAIN_NAME>/privkey.pem .
-sudo chown $USER:$USER fullchain.pem privkey.pem
-chmod 600 fullchain.pem privkey.pem
-```
-
-### 6. Install Python Requirements
-```bash
-python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 7. Configure Environment Variables
-Export the required environment variables (see Environment Variables section in README for details):
-```bash
-export OPENAI_API_KEY="sk-..."
-export DOMAIN_NAME="<YOUR_DOMAIN_NAME>"
-export CERT_FILE="$(pwd)/fullchain.pem"
-export KEY_FILE="$(pwd)/privkey.pem"
+
+## 3) Project Layout
+
+```
+.
+├── server.py          # your MCP server (the code you shared)
+├── requirements.txt   # Python dependencies
+└── README.md          # this file
 ```
 
-### 8. Run the Agent as a Background Process
+
+## 4) Run with Claude Desktop (recommended)
+
+1. **Add the MCP server to Claude Desktop config.**  
+   Open (or create) your Claude Desktop config file and add an entry like:
+
+   ```json
+   {
+     "mcpServers": {
+       "simple-mcp-server": {
+         "command": "python",
+         "args": ["<ABSOLUTE_PATH>/server.py"]
+       }
+     }
+   }
+   ```
+
+   - Replace `<ABSOLUTE_PATH>/server.py` with the full path to your `server.py`.
+   - On Windows, use a path like: `"D:/Harvard/Fall2025/ai_agent/mcp-time/server.py"`.
+
+2. **Restart Claude Desktop.** It will spawn the server and register the tools automatically.
+
+3. **Test inside Claude.** Try any of these messages:
+   - *“Use the `recommend_song` tool with prompt = 'chill ambient study at night' and limit = 3.”*
+   - *“Recommend a hype pop banger for a workout.”*
+   - *“Call `get_greeting` for Yushu.”*
+   - *“Add 41 and 59 with the `add_numbers` tool.”*
+
+
+## 5) (Optional) Run directly from a terminal
+
+This server speaks MCP over **stdio**, so it’s meant to be launched by an MCP client.  
+If you just want to check that it **starts** without errors:
+
 ```bash
-nohup python3 nanda_agent.py > out.log 2>&1 &
+python server.py
 ```
 
-### 9. Check Logs for Enrollment Link
-```bash
-cat out.log
-```
-Look for a printed URL containing your `agentId`.
-
-### 10. Register the Agent
-Copy the enrollment link from the log output and open it in your browser to complete registration.
+It will wait for stdio messages from an MCP client. You can press `Ctrl+C` to exit.
 
 
-## Registry URL Resolution
+## 6) Tool Schemas (for reference)
 
-`nanda_agent.py` chooses the registry URL by:
-1. `registry_url.txt` (if present in CWD), else
-2. `REGISTRY_URL` env var, else
-3. default `https://chat.nanda-registry.com`
+### `recommend_song`
+- **description:** Recommends songs based on a free-text prompt (mood/genre/vibe/era).
+- **input:**
+  ```json
+  {
+    "prompt": "string (required)",
+    "limit": 1..10 (optional, default 3)
+  }
+  ```
+- **output:** Text with a small ranked list and match scores.
 
-It prints which source it used.
+### `get_greeting`
+- **input:** `{ "name": "string" }` → text greeting
+
+### `add_numbers`
+- **input:** `{ "a": number, "b": number }` → text with the sum
 
 
-## 🤖 AI Assistance Acknowledgment
-Approximately **80% of the code was generated with AI assistance** (ChatGPT / GPT-5).  
----
+## 7) Troubleshooting
 
+- **Claude Desktop doesn’t see the server**  
+  - Make sure the path in your config is correct and absolute.  
+  - Confirm Python can import the `mcp` package: `python -c "import mcp; print(mcp.__version__)"`  
+  - Check whether your `server.py` runs: `python server.py` (it should block, waiting on stdio).
+
+- **Windows (WSL) path issues**  
+  - If your code lives on `D:` but you run through WSL, ensure the path and command are correct.  
+  - You can also set the Claude entry to use `wsl`:
+    ```json
+    {
+      "command": "wsl",
+      "args": ["bash", "-lc", "python /mnt/d/harvard/fall2025/ai_agent/mcp-time/server.py"]
+    }
+    ```
+
+- **Virtual environment not picked up**  
+  - Point `command` to the venv’s Python:
+    - Windows: `"<ABS_PATH>/.venv/Scripts/python.exe"`  
+    - macOS/Linux: `"<ABS_PATH>/.venv/bin/python"`
+
+
+## 8) License
+
+MIT (or your preferred license).
+
+Enjoy building with MCP! 🎶
