@@ -1,197 +1,136 @@
-# CrewAI Minimal — Two Agents (Summarizer & Q&A)
+# 🎙️ Voice Summarizer CLI — Text & Audio Summarization with Speech I/O
 
-This project is a **minimal CrewAI assignment implementation** with just **three files**:
-
-- `main.py` — all code in one file (agents, tasks, crew, runner)  
-- `README.md` — this documentation  
-- `requirements.txt` — dependencies  
-
-It demonstrates how to build a **CrewAI system with two agents** that embody a “digital twin lite” persona of a student (Yushu).  
+This project provides a **command-line tool** for summarizing both **text files** and **audio recordings**.  
+It integrates **CrewAI agents** for summarization, **Whisper** for speech-to-text, and **Edge TTS** for text-to-speech.  
+The result: a lightweight workflow where you can feed in text or spoken notes and receive both **concise markdown summaries** and **spoken summaries (mp3)**.
 
 ---
 
-## ✨ Design
+## 📂 Project Structure
 
-### Agents
-1. **Concise Summarizer**  
-   - **Role:** Condenses text into clear, structured bullet points  
-   - **Goal:** Produce 5–10 plain-language bullets with short headers  
-   - **Persona (backstory):** Yushu’s “digital twin lite” for summarization — concise, action-oriented, preserving key numbers/names  
-
-2. **Practical Q&A Specialist**  
-   - **Role:** Answers user questions based on context (or via optional web search)  
-   - **Goal:** Provide direct answers, with short explanation + next steps/tips  
-   - **Persona (backstory):** Evidence-minded, pragmatic, includes short “how I got this” notes  
-
-### Tasks
-- **Summarization Task**  
-  - Input: free-form text  
-  - Output: Markdown bullets with title, sections, and optional action items  
-  - Saved to `summary.md` if `FileWriterTool` is used  
-
-- **Q&A Task**  
-  - Input: a user’s question, plus optional context  
-  - Output: Direct markdown answer + explanation (+ sources if applicable)  
-  - Saved to `answer.md` if `FileWriterTool` is used  
-
-### Crew
-- Orchestration mode: **sequential** (summarizer runs before Q&A in demo mode)  
-- Agents cannot delegate to each other (each handles its own task directly)  
-- Tools:  
-  - `FileWriterTool()` (both agents)  
-  - `SerperDevTool()` (Q&A agent, only if `SERPER_API_KEY` is set)  
+- `voice_summarizer_cli.py` — CLI tool for summarization pipelines  
+- `requirements.txt` — dependencies (CrewAI, Whisper, Edge TTS, audio utils)  
+- `sample_input/notes.txt` — example meeting notes (plain text)  
+- `sample_input/meeting.wav` — example meeting recording (WAV, 16 kHz mono)  
+- `sample_output/summary.md` — example summary output from text/audio  
+- `sample_output/summary.mp3` — example spoken summary (Edge TTS)  
+- `sample_output/transcript.txt` — transcript generated from audio  
 
 ---
 
-## ⚙️ Workflow
+## ✨ Features
 
-1. **Startup:**  
-   - User runs `python main.py` and selects a mode (`demo`, `summarize`, or `qa`).  
+- **Text → Summary → Speech**  
+  - Input: any `.txt` file  
+  - Output: `summary.md` + `summary.mp3`  
 
-2. **Agent Creation:**  
-   - Summarizer agent is always available.  
-   - Q&A agent is created only if `demo` or `qa` mode is chosen.  
+- **Speech → Transcript → Summary**  
+  - Input: any `.wav` (or `.m4a`, `.flac` if ffmpeg is installed)  
+  - Output: `transcript.txt` + `summary.md`  
 
-3. **Task Assignment:**  
-   - Summarization task: created with input text.  
-   - Q&A task: created with question + context.  
+- **CrewAI summarizer agent**  
+  - Produces 5–10 clear, plain-language bullets with short headers  
+  - Keeps key numbers, names, and action items  
 
-4. **Crew Execution:**  
-   - CrewAI runs tasks sequentially.  
-   - Agents generate outputs.  
-   - Results are printed to the terminal (and optionally saved to files).  
-
----
-
-## 🖥️ Modes
-
-### 1. Demo mode
-- **Input:** built-in sample about Federated Learning.  
-- **Process:**  
-  1. Summarizer creates bullets from sample text.  
-  2. Q&A agent answers: *“What are the key challenges mentioned?”*  
-- **Output:** printed summary + Q&A in terminal, with possible files saved.  
-
-### 2. Summarize mode
-- **Input:**  
-  - User pastes custom text into terminal (or presses ENTER for a default short sample).  
-- **Process:**  
-  - Summarizer condenses input into 5–10 bullets.  
-- **Output:** printed summary, optionally saved to `summary.md`.  
-
-### 3. QA mode
-- **Input:**  
-  - User provides a question.  
-  - User may optionally paste context text (or leave blank).  
-- **Process:**  
-  - Q&A agent answers using context; if insufficient and web search is available, it can search.  
-- **Output:** printed direct answer + short explanation, optionally saved to `answer.md`.  
+- **Edge TTS**  
+  - High-quality neural voice synthesis (`en-US-JennyNeural` default)  
+  - Saves summaries as `.mp3` audio files  
 
 ---
 
-## 🚀 How to Use
+## ⚙️ Setup
 
-### 1. Set up environment
+### 1. Create environment
 ```bash
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m venv .venv-voice
+source .venv-voice/bin/activate   # Windows: .venv-voice\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Set API key
-You need an **OpenAI API key**.
+### 2. Set OpenAI API key  
+CrewAI requires an OpenAI API key for summarization.
 
-#### PowerShell (Windows)
+**PowerShell (Windows):**
 ```powershell
 $env:OPENAI_API_KEY="sk-your-key-here"
 ```
 
-#### macOS/Linux
+**macOS/Linux (bash/zsh):**
 ```bash
 export OPENAI_API_KEY="sk-your-key-here"
 ```
 
-*(Optional)* If you want the Q&A agent to use **web search**:
+---
+
+## 🚀 Usage
+
+### Text → Summary → Speech
+Summarize a text file and generate a spoken `.mp3`.
+
 ```bash
-export SERPER_API_KEY="your-serper-key"
+python voice_summarizer_cli.py text2summary2speech \
+    -i sample_input/notes.txt \
+    -S sample_output/summary.md \
+    -o sample_output/summary.mp3 \
+    -v en-US-JennyNeural
 ```
 
-### 3. Run the program
+- Input: `sample_input/notes.txt`  
+- Output:  
+  - `sample_output/summary.md` (markdown summary)  
+  - `sample_output/summary.mp3` (spoken summary)  
+
+---
+
+### Speech → Transcript → Summary
+Transcribe audio, summarize the transcript, and save results.
+
 ```bash
-python main.py
+python voice_summarizer_cli.py speech2summary2text \
+    -i sample_input/meeting.wav \
+    -t sample_output/transcript.txt \
+    -S sample_output/summary.md
 ```
 
-Choose one of:
-- `demo` → run both summarizer + Q&A with a sample text  
-- `summarize` → paste your own text for summarization  
-- `qa` → ask a question, optionally provide context  
+- Input: `sample_input/meeting.wav` (16 kHz mono WAV recommended)  
+- Output:  
+  - `sample_output/transcript.txt` (speech-to-text result)  
+  - `sample_output/summary.md` (markdown summary)  
 
 ---
 
-## ✅ Test Cases
+## ✅ Sample Runs
 
-1. **Demo (default)**  
-   ```text
-   Choose mode: [demo | summarize | qa]
-   demo
-   ```
-   - Expected: Summary of federated learning, then an answer listing challenges (client heterogeneity, stragglers, privacy, connectivity).  
+### Example 1: Text Notes
+Input file: [`sample_input/notes.txt`](sample_input/notes.txt)  
+Output: [`sample_output/summary.md`](sample_output/summary.md), [`sample_output/summary.mp3`](sample_output/summary.mp3)
 
-2. **Summarize custom text**  
-   ```
-   summarize
-   Text: "Harvard's Data Science program combines statistics, machine learning, and computation..."
-   ```
-   - Expected: 5–10 bullets about program highlights.  
-
-3. **Q&A with context**  
-   ```
-   qa
-   Question: What is the main advantage of AI summarization?
-   Context: AI summarization reduces reading time by extracting key points automatically.
-   ```
-   - Expected: Answer: “The main advantage is efficiency/time-savings.”  
-
-4. **Q&A without context** (SERPER key enabled)  
-   ```
-   qa
-   Question: Who invented federated learning?
-   Context: [press ENTER]
-   ```
-   - Expected: Web search + answer (Google researchers, 2016).  
+### Example 2: Meeting Recording
+Input file: [`sample_input/meeting.wav`](sample_input/meeting.wav)  
+Output: [`sample_output/transcript.txt`](sample_output/transcript.txt), [`sample_output/summary.md`](sample_output/summary.md)
 
 ---
 
-## 🧪 Notes & Tips
-- If you get `RateLimitError` or `insufficient_quota`, check your OpenAI **billing/quota**.  
-- Default model: CrewAI uses GPT-4 class unless overridden. You can save costs by specifying `gpt-4o-mini` in agent definitions.  
-- CrewAI’s logging is verbose: you’ll see task execution steps in your terminal.  
+## 🔑 Requirements
+
+See [`requirements.txt`](requirements.txt). Main libraries:
+- `crewai>=0.51.0`
+- `crewai-tools>=0.13.0`
+- `openai-whisper` (STT, CPU-friendly)  
+- `edge-tts` (TTS, no API key required)  
+- `soundfile`, `scipy`, `numpy` (audio decode + resampling)  
 
 ---
 
-## ✅ What Worked / What Didn’t
-
-### What Worked
-- CrewAI orchestration of **two agents in sequence** works as expected.  
-- Personas (`backstory`) help guide style (concise bullets, evidence-based answers).  
-- FileWriterTool successfully saves summaries/answers when configured.  
-- Modes (`demo`, `summarize`, `qa`) allow flexible testing from the terminal.  
-
-### What Didn’t (Limitations)
-- **Quota dependency:** Must have an active OpenAI billing plan, otherwise runs fail with quota errors.  
-- **Local models not integrated:** Hosting/running with Ollama or Hugging Face models would require extra setup (this project is tested only with OpenAI API).  
-- **File saving behavior:** FileWriterTool may not always save output if the model ignores instructions.  
-- **Search tool limits:** `SerperDevTool` requires a SERPER API key and may have rate limits.  
-- **No persistent memory:** Agents don’t remember past runs (stateless by design).  
+## ⚠️ Notes & Tips
+- Use `.wav` (16 kHz, mono, PCM) for maximum compatibility without ffmpeg.  
+- `.m4a` and `.mp3` also work, but require ffmpeg installed and on PATH.  
+- Summarization depends on your OpenAI quota and model availability.  
 
 ---
 
-## 🤖 AI Assistance Acknowledgment
-Approximately **80% of the code was generated with AI assistance** (ChatGPT / GPT-5).  
+## 🤖 AI Assistance
+Approximately **90% of this project was developed with AI assistance** (ChatGPT/GPT-5).  
+The developer provided project direction, integration choices, and debugging.  
+
 ---
-
-## 📂 File Overview
-
-- **main.py** → agents, tasks, crew, runner (all-in-one)  
-- **requirements.txt** → dependencies (`crewai`, `crewai-tools`)  
-- **README.md** → this documentation  
